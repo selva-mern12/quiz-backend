@@ -1,0 +1,51 @@
+
+POST http://localhost:3000/quiz/register
+Content-Type: application/json
+
+{
+  "name": "Selva",
+  "username": "man3006",
+  "password": "manju@SELVA1201"
+}
+
+### 
+
+
+POST http://localhost:3000/quiz/login 
+Content-Type: application/json
+
+{"userDetails" :{
+  "username": "sundar_1605",
+  "password": "sundar@KAMATCHI1605"
+}}
+
+###
+GET http://localhost:3000/quiz/data?category=Technology%20%26%20IT&difficulty=Easy
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InNlbHZhMTIwMSIsImlhdCI6MTc0MDE3NDk3OX0.2NZEcGxi9FRT5ftDuHQKzTszHlmY3XA3_2cKGF4rBsc
+
+
+###
+
+POST http://localhost:3000/quiz/add
+Content-Type: application/json
+
+{"quizQuestions" : [
+  
+  ]}
+
+###
+
+POST http://localhost:3000/quiz/scoreboard
+Content-Type: application/json
+
+{
+  "category": "sample",
+  "level": "Easy",
+  "totalScore": 3,
+  "dateTime": "jan 25"
+}
+
+###
+
+GET http://localhost:3000/quiz/scoreboard?userId=0be6a2ee-b2ea-404b-998e-e01f75271c2c
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InNlbHZhMTIwMSIsImlhdCI6MTc0MDE3NDk3OX0.2NZEcGxi9FRT5ftDuHQKzTszHlmY3XA3_2cKGF4rBsc
