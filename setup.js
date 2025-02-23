@@ -1,13 +1,20 @@
 const fs = require('fs');
-const path = require('path');
 
-// Define the database directory path
-const dataDir = path.join(__dirname, 'data');
+const dataDir = '/data';
+const dbFile = `${dataDir}/quizData.db`;
 
-// Check if the directory exists, if not, create it
+// Ensure the /data directory exists
 if (!fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
     console.log("✅ Created /data directory successfully.");
 } else {
     console.log("⚡ /data directory already exists.");
+}
+
+// Ensure the database file exists
+if (!fs.existsSync(dbFile)) {
+    fs.writeFileSync(dbFile, ''); // Creates an empty SQLite DB file
+    console.log("✅ Created quizData.db file.");
+} else {
+    console.log("⚡ quizData.db already exists.");
 }
