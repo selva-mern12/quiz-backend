@@ -1,13 +1,24 @@
-const express = require('express');
+const fs = require('fs');
 const path = require('path');
+const express = require('express');
 const sqlite3 = require('sqlite3');
 const { open } = require('sqlite');
-const cors = require('cors')
+const cors = require('cors');
+
 const app = express();
 app.use(express.json());
-app.use(cors())
+app.use(cors());
 
-const dbPath = process.env.RENDER ? '/data/quizData.db' : path.join(__dirname, 'data', 'quizData.db');
+// Ensure /data directory exists at runtime (Only for Render)
+const dataDir = process.env.RENDER ? '/data' : path.join(__dirname, 'data');
+if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+    console.log(`✅ Created ${dataDir} directory at runtime.`);
+} else {
+    console.log(`⚡ ${dataDir} directory already exists.`);
+}
+
+const dbPath = path.join(dataDir, 'quizData.db');
 
 let db;
 
@@ -41,15 +52,15 @@ const initializeDbToServer = async () => {
             );
         `);
 
-        app.listen(3000, '0.0.0.0', () => console.log("Server running on port 3000"));
+        app.listen(3000, '0.0.0.0', () => console.log("🚀 Server running on port 3000"));
     } catch (e) {
-        console.error(`DB Error: ${e.message}`);
+        console.error(`❌ DB Error: ${e.message}`);
         process.exit(1);
     }
 };
 
-
 initializeDbToServer();
+
 
 app.get('/quiz/data', async (request, response) => {
     const {category, difficulty} = request.query
