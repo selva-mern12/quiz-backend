@@ -107,7 +107,7 @@ app.post('/quiz/login', async (request, response) => {
     }
 });
 
-app.get('/quiz/data', async (request, response) => {
+app.get('/quiz/data',Authorization, async (request, response) => {
     const {category, difficulty, language} = request.query
     let getQuizDataQuery;
     try {
@@ -131,7 +131,7 @@ app.get('/quiz/data', async (request, response) => {
     }
 });
 
-app.post('/quiz/add', async (request, response) => {
+app.post('/quiz/add',Authorization, async (request, response) => {
     const { quizQuestions } = request.body;
     // console.log(quizQuestions);
     try {
