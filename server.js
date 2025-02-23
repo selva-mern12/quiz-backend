@@ -7,7 +7,8 @@ const app = express();
 app.use(express.json());
 app.use(cors())
 
-const dbPath = path.join('/data', 'quizData.db');  
+const dbPath = process.env.RENDER ? '/data/quizData.db' : path.join(__dirname, 'data', 'quizData.db');
+
 let db;
 
 const initializeDbToServer = async () => {
