@@ -188,7 +188,7 @@ app.delete('/quiz/scoreboard', Authorization, async (request, response) => {
     const {id} = request.query
     try {
         const deleteScoreBoardQuery = `DELETE FROM scoreBoard WHERE id= ?`
-        await db.run(deleteScoreBoardQuery,[idd])
+        await db.run(deleteScoreBoardQuery,[id])
         response.json('Successfully Delete')
     } catch (error) {
         response.json({error_msg: `Error deleting scoreboard: ${error.message}`})
