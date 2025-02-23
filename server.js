@@ -22,7 +22,7 @@ const initializeDbToServer = async () => {
             driver: sqlite3.Database
         });
 
-        app.listen(3000, '0.0.0.0', () => console.log("Server running on port 3000"));
+        app.listen(3001, '0.0.0.0', () => console.log("Server running on port 3000"));
     } catch (e) {
         console.error(`DB Error: ${e.message}`);
         process.exit(1);
@@ -185,10 +185,10 @@ app.get('/quiz/scoreboard', Authorization, async (req, res) => {
 
 
 app.delete('/quiz/scoreboard', Authorization, async (request, response) => {
-    const {date} = request.query
+    const {id} = request.query
     try {
-        const deleteScoreBoardQuery = `DELETE FROM scoreBoard WHERE date_time= ?`
-        await db.run(deleteScoreBoardQuery,[date])
+        const deleteScoreBoardQuery = `DELETE FROM scoreBoard WHERE id= ?`
+        await db.run(deleteScoreBoardQuery,[id])
         response.json('Successfully Delete')
     } catch (error) {
         response.json(`error_msg: Error deleting scoreboard: ${error.message}`)
