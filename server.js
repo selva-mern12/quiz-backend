@@ -9,21 +9,19 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Ensure /data directory exists for Render
-const dataDir = process.env.RENDER ? '/data' : path.join(__dirname, 'data');
-if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
-    console.log(`✅ Created ${dataDir} directory.`);
-} else {
-    console.log(`⚡ Using existing directory: ${dataDir}`);
-}
-
+// ✅ Ensure a writable directory for the database
+const dataDir = process.env.RENDER ? '/tmp' : path.join(__dirname, 'data'); // Use `/tmp` on Render
 const dbPath = path.join(dataDir, 'quizData.db');
 let db;
 
-// Initialize the database
+// ✅ Initialize the database
 const initializeDbToServer = async () => {
     try {
+        if (!fs.existsSync(dataDir)) {
+            fs.mkdirSync(dataDir, { recursive: true });
+            console.log(`✅ Created writable directory: ${dataDir}`);
+        }
+
         db = await open({
             filename: dbPath,
             driver: sqlite3.Database
@@ -67,17 +65,18 @@ const initializeDbToServer = async () => {
 
         console.log("✅ Tables verified/created.");
 
-        // Start server only after DB is initialized
-        app.listen(3000, '0.0.0.0', () => console.log("🚀 Server running on port 3000"));
+        // ✅ Start server only after DB is initialized
+        const PORT = process.env.PORT || 3000;
+        app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server running on port ${PORT}`));
     } catch (e) {
-        console.error(`❌ DB Error: ${e.message}`);
+        console.error(`❌ Database initialization failed: ${e.message}`);
         process.exit(1);
     }
 };
 
 initializeDbToServer();
 
-// Middleware to ensure DB is ready before handling requests
+// ✅ Middleware to ensure DB is ready before handling requests
 app.use((req, res, next) => {
     if (!db) {
         return res.status(503).json({ error: "Database not initialized yet. Please try again later." });
@@ -85,13 +84,11 @@ app.use((req, res, next) => {
     next();
 });
 
-// Get quiz data
-app.get('/quiz/data', async (request, response) => {
-    const { category, difficulty } = request.query;
+// ✅ Get quiz data
+app.get('/quiz/data', async (req, res) => {
+    const { category, difficulty } = req.query;
     try {
-        const getQuizDataQuery = `
-            SELECT * FROM quizQuestions WHERE category=? AND difficulty=?;
-        `;
+        const getQuizDataQuery = `SELECT * FROM quizQuestions WHERE category=? AND difficulty=?;`;
         const getQuizData = await db.all(getQuizDataQuery, [category, difficulty]);
 
         const formattedQuizData = getQuizData.map(question => ({
@@ -99,51 +96,60 @@ app.get('/quiz/data', async (request, response) => {
             options: JSON.parse(question.options)
         }));
 
-        response.json(formattedQuizData);
+        res.json(formattedQuizData);
     } catch (error) {
-        response.status(500).json({ error: 'Internal Server Error' });
+        console.error(`❌ Error fetching quiz data: ${error.message}`);
+        res.status(500).json({ error: 'Internal Server Error' });
     }
 });
 
-// Add quiz question
-app.post('/quiz/add', async (request, response) => {
-    const { quizQuestions } = request.body;
+// ✅ Add quiz question
+app.post('/quiz/add', async (req, res) => {
+    const { quizQuestions } = req.body;
     try {
+        const insertQuery = `
+            INSERT INTO quizQuestions (category, difficulty, question, options, answer)
+            VALUES (?, ?, ?, ?, ?);
+        `;
+
         for (let question of quizQuestions) {
-            const addNewQuestionQuery = `
-                INSERT INTO quizQuestions (category, difficulty, question, options, answer)
-                VALUES (?, ?, ?, ?, ?);
-            `;
-            await db.run(addNewQuestionQuery, [
-                question.category, question.difficulty, question.question, JSON.stringify(question.options), question.answer
+            await db.run(insertQuery, [
+                question.category,
+                question.difficulty,
+                question.question,
+                JSON.stringify(question.options),
+                question.answer
             ]);
         }
-        response.json('Question Added Successfully');
+
+        res.json({ message: 'Question Added Successfully' });
     } catch (error) {
-        console.error(`Error adding question: ${error.message}`);
-        response.status(500).json({ error: 'Internal Server Error' });
+        console.error(`❌ Error adding question: ${error.message}`);
+        res.status(500).json({ error: 'Internal Server Error' });
     }
 });
 
-// Add scoreboard entry
-app.post('/quiz/scoreboard', async (request, response) => {
-    const { user_id, category, level, total_score, date_time, question_set } = request.body;
+// ✅ Add scoreboard entry
+app.post('/quiz/scoreboard', async (req, res) => {
+    const { user_id, category, level, total_score, date_time, question_set } = req.body;
     try {
-        const addScoreBoardQuery = `
+        const insertScoreQuery = `
             INSERT INTO scoreBoard (user_id, category, level, total_score, date_time, question_set)
             VALUES (?, ?, ?, ?, ?, ?);
         `;
-        await db.run(addScoreBoardQuery, [
+
+        await db.run(insertScoreQuery, [
             user_id, category, level, total_score, date_time, JSON.stringify(question_set)
         ]);
-        response.send('Scoreboard Successfully Added');
+
+        res.json({ message: 'Scoreboard Successfully Added' });
     } catch (error) {
-        response.status(500).json({ error: `Error adding scoreboard: ${error.message}` });
-        console.error(`Error adding scoreboard: ${error.message}`);
+        console.error(`❌ Error adding scoreboard: ${error.message}`);
+        res.status(500).json({ error: `Error adding scoreboard: ${error.message}` });
     }
 });
 
-// Get scoreboard
+// ✅ Get scoreboard
 app.get('/quiz/scoreboard', async (req, res) => {
     try {
         const getScoreBoardQuery = `SELECT * FROM scoreBoard;`;
@@ -156,21 +162,21 @@ app.get('/quiz/scoreboard', async (req, res) => {
 
         res.json(formattedData);
     } catch (error) {
-        console.error(`Error fetching scoreboard: ${error.message}`);
-        res.status(500).json({ error_msg: `Error fetching scoreboard: ${error.message}` });
+        console.error(`❌ Error fetching scoreboard: ${error.message}`);
+        res.status(500).json({ error: `Error fetching scoreboard: ${error.message}` });
     }
 });
 
-// Delete scoreboard entry
-app.delete('/quiz/scoreboard', async (request, response) => {
-    const { id } = request.query;
+// ✅ Delete scoreboard entry
+app.delete('/quiz/scoreboard', async (req, res) => {
+    const { id } = req.query;
     try {
-        const deleteScoreBoardQuery = `DELETE FROM scoreBoard WHERE id=?;`;
-        await db.run(deleteScoreBoardQuery, [id]);
-        response.send('Successfully Deleted');
+        const deleteScoreQuery = `DELETE FROM scoreBoard WHERE id=?;`;
+        await db.run(deleteScoreQuery, [id]);
+        res.json({ message: 'Successfully Deleted' });
     } catch (error) {
-        response.status(500).json({ error_msg: `Error deleting scoreboard entry: ${error.message}` });
-        console.error(`Error deleting scoreboard entry: ${error.message}`);
+        console.error(`❌ Error deleting scoreboard entry: ${error.message}`);
+        res.status(500).json({ error: `Error deleting scoreboard entry: ${error.message}` });
     }
 });
 
