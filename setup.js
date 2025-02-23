@@ -1,9 +1,10 @@
 const fs = require('fs');
+const path = require('path');
 
 const dataDir = process.env.RENDER ? '/data' : './data';
-const dbFile = `${dataDir}/quizData.db`;
+const dbFile = path.join(dataDir, 'quizData.db');
 
-// Ensure the database file exists
+// Only check database file (Do NOT create /data manually)
 if (!fs.existsSync(dbFile)) {
     fs.writeFileSync(dbFile, ''); // Creates an empty SQLite DB file
     console.log("✅ Created quizData.db file.");

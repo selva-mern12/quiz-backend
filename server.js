@@ -9,13 +9,15 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// Ensure /data directory exists at runtime (Only for Render)
+// Use /data for Render, fallback to local 'data' directory
 const dataDir = process.env.RENDER ? '/data' : path.join(__dirname, 'data');
-if (!fs.existsSync(dataDir)) {
+
+// ❌ REMOVE Manual Directory Creation for Render
+if (!process.env.RENDER && !fs.existsSync(dataDir)) {
     fs.mkdirSync(dataDir, { recursive: true });
-    console.log(`✅ Created ${dataDir} directory at runtime.`);
+    console.log(`✅ Created local directory: ${dataDir}`);
 } else {
-    console.log(`⚡ ${dataDir} directory already exists.`);
+    console.log(`⚡ Using existing directory: ${dataDir}`);
 }
 
 const dbPath = path.join(dataDir, 'quizData.db');
