@@ -2,17 +2,12 @@ const express = require('express');
 const path = require('path');
 const sqlite3 = require('sqlite3');
 const { open } = require('sqlite');
-const cors = require('cors');
-const {v4 : uuidv4} = require('uuid')
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
+const cors = require('cors')
 const app = express();
 app.use(express.json());
 app.use(cors())
 
-const secret_key = 'SELVA_QUIZ'
-
-const dbPath = path.join(__dirname, 'quizData.db');  
+const dbPath = path.join('/data', 'quizData.db');  
 let db;
 
 const initializeDbToServer = async () => {
@@ -22,97 +17,45 @@ const initializeDbToServer = async () => {
             driver: sqlite3.Database
         });
 
-        app.listen(3001, '0.0.0.0', () => console.log("Server running on port 3000"));
+        await db.exec(`
+            CREATE TABLE IF NOT EXISTS user (
+                user_id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                username TEXT NOT NULL UNIQUE,
+                password TEXT NOT NULL,
+                date DATETIME DEFAULT (datetime('now', 'localtime'))
+            );
+        `);
+
+        await db.exec(`
+            CREATE TABLE IF NOT EXISTS scoreBoard (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id TEXT NOT NULL,
+                category TEXT,
+                level TEXT,
+                total_score INTEGER,
+                date_time DATETIME,
+                question_set TEXT,
+                FOREIGN KEY (user_id) REFERENCES user (user_id) ON DELETE CASCADE
+            );
+        `);
+
+        app.listen(3000, '0.0.0.0', () => console.log("Server running on port 3000"));
     } catch (e) {
         console.error(`DB Error: ${e.message}`);
         process.exit(1);
     }
 };
 
+
 initializeDbToServer();
 
-const Authorization = (request, response, next) => {
-    const authHeader = request.headers.authorization
-    if (!authHeader) {
-        return response.status(401).json({ error_msg: "Token not provided" });
-    }
-
-    const tokenParts = authHeader.split(" ");
-    const jwtToken = tokenParts[1]
-
-    if (!jwtToken){
-        return response.status(401).json({ error_msg: "Token not Valid" });
-    }
-    
-    else {
-        jwt.verify(jwtToken, secret_key, function (err, payload) {
-            if (err) {
-                return response.status(401).json({ "error_msg": "Invalid Token" });
-            }            
-            else{
-                request.username = payload.username
-                next()
-            }
-        })
-    }
-}
-
-app.post('/quiz/register', async (request, response) => {
-    const {userDetails} = request.body
-    const {name, username, password} = userDetails
-    const hashedPassword = await bcrypt.hash(password, 5)
-    try {
-        const checkUsernameQuery = `SELECT username FROM user WHERE username = ? ;`;
-        const checkUsername = await db.get(checkUsernameQuery,[username]);
-
-        if (!checkUsername){
-        const addNewUserQuery = `
-        INSERT INTO user (user_id, name, username, password)
-        VALUES (?, ?, ?, ? );`;
-        await db.run(addNewUserQuery,[uuidv4(), name, username, hashedPassword]);
-        response.status(201).json({ message: "Successfully Registered" });
-        } else {
-            response.status(400).json({error: "Username already exists"});
-        }
-    } catch (error) {
-        console.error("Error in registration:", error);
-        response.status(500).json({ error: "Internal server error" });
-    }
-})
-
-app.post('/quiz/login', async (request, response) => {
-    const {userDetails} = request.body
-    const { username, password } = userDetails;
-    try {
-        const checkUsernameQuery = `SELECT * FROM user WHERE username = ?;`;
-        const checkUsername = await db.get(checkUsernameQuery, [username]);
-
-        if (checkUsername) {
-            const isPasswordValid = await bcrypt.compare(password, checkUsername.password);
-            if (isPasswordValid) {
-                const payLoad = { username: checkUsername.username };
-                const jwtToken = jwt.sign(payLoad, secret_key);
-                response.status(201).json({ message: "Login Successfully",
-                                            jwt_token: jwtToken,
-                                            userId: checkUsername.user_id,
-                                            name: checkUsername.name});
-            } else {
-                response.status(401).json({ error_msg: "Password is not valid" });
-            }
-        } else {
-            response.status(404).json({ error_msg: "Username not found" });
-        }
-    } catch (error) {
-        response.status(500).json({ error_msg: error.message });
-    }
-});
-
-app.get('/quiz/data',Authorization, async (request, response) => {
+app.get('/quiz/data', async (request, response) => {
     const {category, difficulty} = request.query
     try {
-        const getQuizDataQuery = `SELECT * FROM quizQuestions WHERE category = ? AND difficulty = ?;`;
-        const getQuizData = await db.all(getQuizDataQuery, [category, difficulty]);
-        
+        const getQuizDataQuery = `SELECT * FROM quizQuestions
+            WHERE category='${category}' AND difficulty = '${difficulty}';`;
+        const getQuizData = await db.all(getQuizDataQuery);
         const formattedQuizData = getQuizData.map(question => ({
             ...question,
             options: JSON.parse(question.options)
@@ -125,39 +68,31 @@ app.get('/quiz/data',Authorization, async (request, response) => {
     }
 });
 
-// app.post('/quiz/add', Authorization, async (request, response) => {
-//     const { quizQuestions } = request.body;
-//     // console.log(quizQuestions);
-//     try {
-//         for (let question of quizQuestions) {
-//             const addNewQuestionQuery = `
-//             INSERT INTO quizQuestions (id, category, difficulty, question, options, answer)
-//             VALUES (${question.id}, "${question.category}", "${question.difficulty}", "${question.question}", '${JSON.stringify(question.options)}', "${question.answer}");`;
-//             await db.run(addNewQuestionQuery);
-//         }
-//         response.json('Question Added Successfully');
-//     } catch (error) {
-//         console.error(`Error adding question: ${error.message}`);
-//         response.status(500).json({ error: 'Internal Server Error' });
-//     }
-// });
+app.post('/quiz/add', async (request, response) => {
+    const { quizQuestions } = request.body;
+    // console.log(quizQuestions);
+    try {
+        for (let question of quizQuestions) {
+            const addNewQuestionQuery = `
+            INSERT INTO quizQuestions (id, category, difficulty, question, options, answer)
+            VALUES (${question.id}, "${question.category}", "${question.difficulty}", "${question.question}", '${JSON.stringify(question.options)}', "${question.answer}");`;
+            const addNewQuestion = await db.run(addNewQuestionQuery);
+        }
+        response.json('Question Added Successfully');
+    } catch (error) {
+        console.error(`Error adding question: ${error.message}`);
+        response.status(500).json({ error: 'Internal Server Error' });
+    }
+});
 
-app.post('/quiz/scoreboard', Authorization, async (request, response) => {
-    const {userId, category, level, totalScore, dateTime, questionSet } = request.body;
+app.post('/quiz/scoreboard', async (request, response) => {
+    const { category, level, totalScore, dateTime, questionSet } = request.body;
+    console.log({category, level, totalScore, dateTime})
     try {
         const addScoreBoardQuery = `
-        INSERT INTO scoreBoard (user_id, category, level, total_score, date_time, question_set)
-         VALUES (?, ?, ?, ?, ?, ?);
-        `;
-
-        await db.run(addScoreBoardQuery, [
-            userId,
-            category,
-            level,
-            totalScore,
-            dateTime,
-            JSON.stringify(questionSet)
-        ]);
+            INSERT INTO scoreBoard (category, level, totalScore, dateTime, questionSet)
+            VALUES ("${category}", "${level}", ${totalScore}, "${dateTime}", '${JSON.stringify(questionSet)}');`;
+        await db.run(addScoreBoardQuery);
         response.send('Scoreboard Successfully Added');
     } catch (error) {
         response.status(500).json({ error: `Error adding scoreboard: ${error.message}` });
@@ -165,15 +100,14 @@ app.post('/quiz/scoreboard', Authorization, async (request, response) => {
     }
 });
 
-app.get('/quiz/scoreboard', Authorization, async (req, res) => {
-    const {userId} = req.query;
+app.get('/quiz/scoreboard', async (req, res) => {
     try {
-        const getScoreBoardQuery = `SELECT * FROM scoreBoard WHERE user_id= ?`;
-        const getScoreBoard = await db.all(getScoreBoardQuery,[userId]);
+        const getScoreBoardQuery = `SELECT * FROM scoreBoard`;
+        const getScoreBoard = await db.all(getScoreBoardQuery);
 
         const formattedData = getScoreBoard.map(item => ({
             ...item,
-            question_set: item.question_set ? JSON.parse(item.question_set) : []
+            questionSet: item.questionSet ? JSON.parse(item.questionSet) : []
         }));
 
         res.json(formattedData);
@@ -184,15 +118,15 @@ app.get('/quiz/scoreboard', Authorization, async (req, res) => {
 });
 
 
-app.delete('/quiz/scoreboard', Authorization, async (request, response) => {
+app.delete('/quiz/scoreboard', async (request, response) => {
     const {id} = request.query
     try {
-        const deleteScoreBoardQuery = `DELETE FROM scoreBoard WHERE id= ?`
-        await db.run(deleteScoreBoardQuery,[id])
-        response.json('Successfully Delete')
+        const deleteScoreBoardQuery = `DELETE FROM scoreBoard WHERE id='${id}'`
+        await db.run(deleteScoreBoardQuery)
+        response.send('Successfully Delete')
     } catch (error) {
-        response.json(`error_msg: Error deleting scoreboard: ${error.message}`)
-        console.error(`error_msg: Error deleting scoreboard: ${error.message}`);
+        response.send({error_msg: `Error adding question: ${error.message}`})
+        console.error({error_msg: `Error adding question: ${error.message}`});
     }
 });
 
