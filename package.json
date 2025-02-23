@@ -4,7 +4,7 @@
   "main": "index.js",
   "scripts": {
   "start": "node server.js",
-  "postinstall": "chmod -R 777 node_modules/bcrypt && npm rebuild sqlite3 && npm rebuild bcrypt --build-from-source",
+  "postinstall": "npm rebuild sqlite3",
   "test": "echo \"Error: no test specified\" && exit 1"
 },
   "keywords": [],
