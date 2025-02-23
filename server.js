@@ -107,10 +107,16 @@ app.post('/quiz/login', async (request, response) => {
     }
 });
 
-app.get('/quiz/data',Authorization, async (request, response) => {
-    const {category, difficulty} = request.query
+app.get('/quiz/data', async (request, response) => {
+    const {category, difficulty, language} = request.query
+    let getQuizDataQuery;
     try {
-        const getQuizDataQuery = `SELECT * FROM quizQuestions WHERE category = ? AND difficulty = ?;`;
+        if(language === 'tamil'){
+            getQuizDataQuery = `SELECT * FROM quizQuestionsTamil WHERE category = ? AND difficulty = ?;`;
+        }
+        else{
+            getQuizDataQuery = `SELECT * FROM quizQuestions WHERE category = ? AND difficulty = ?;`;
+        }
         const getQuizData = await db.all(getQuizDataQuery, [category, difficulty]);
         
         const formattedQuizData = getQuizData.map(question => ({
@@ -125,22 +131,22 @@ app.get('/quiz/data',Authorization, async (request, response) => {
     }
 });
 
-// app.post('/quiz/add', Authorization, async (request, response) => {
-//     const { quizQuestions } = request.body;
-//     // console.log(quizQuestions);
-//     try {
-//         for (let question of quizQuestions) {
-//             const addNewQuestionQuery = `
-//             INSERT INTO quizQuestions (id, category, difficulty, question, options, answer)
-//             VALUES (${question.id}, "${question.category}", "${question.difficulty}", "${question.question}", '${JSON.stringify(question.options)}', "${question.answer}");`;
-//             await db.run(addNewQuestionQuery);
-//         }
-//         response.json('Question Added Successfully');
-//     } catch (error) {
-//         console.error(`Error adding question: ${error.message}`);
-//         response.status(500).json({ error: 'Internal Server Error' });
-//     }
-// });
+app.post('/quiz/add', async (request, response) => {
+    const { quizQuestions } = request.body;
+    // console.log(quizQuestions);
+    try {
+        for (let question of quizQuestions) {
+            const addNewQuestionQuery = `
+            INSERT INTO quizQuestionsTamil (id, category, difficulty, question, options, answer)
+            VALUES (${question.id}, "${question.category}", "${question.difficulty}", "${question.question}", '${JSON.stringify(question.options)}', "${question.answer}");`;
+            await db.run(addNewQuestionQuery);
+        }
+        response.json('Question Added Successfully');
+    } catch (error) {
+        console.error(`Error adding question: ${error.message}`);
+        response.status(500).json({ error: 'Internal Server Error' });
+    }
+});
 
 app.post('/quiz/scoreboard', Authorization, async (request, response) => {
     const {userId, category, level, totalScore, dateTime, questionSet } = request.body;
@@ -188,7 +194,7 @@ app.delete('/quiz/scoreboard', Authorization, async (request, response) => {
     const {id} = request.query
     try {
         const deleteScoreBoardQuery = `DELETE FROM scoreBoard WHERE id= ?`
-        await db.run(deleteScoreBoardQuery,[idd])
+        await db.run(deleteScoreBoardQuery,[id])
         response.json('Successfully Delete')
     } catch (error) {
         response.json({error_msg: `Error deleting scoreboard: ${error.message}`})
