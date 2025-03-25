@@ -1,35 +1,67 @@
 const express = require('express');
-const path = require('path');
-const sqlite3 = require('sqlite3');
-const { open } = require('sqlite');
 const cors = require('cors');
-const {v4 : uuidv4} = require('uuid')
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
+const  mongoose = require('mongoose');
+const moment = require('moment-timezone')
+require('dotenv').config();
+
 const app = express();
 app.use(express.json());
 app.use(cors())
 
 const secret_key = 'SELVA_QUIZ'
 
-const dbPath = path.join(__dirname, 'quizData.db');  
-let db;
+// connect to mongoDB
+mongoose.connect(process.env.MONGO_URI)
+.then(() => {console.log('DB Connected')}
+)
+.catch((error) => {console.log(error)}
+)
 
-const initializeDbToServer = async () => {
-    try {
-        db = await open({
-            filename: dbPath,
-            driver: sqlite3.Database
-        });
+//Create Schema 
+const userSchema = new mongoose.Schema({
+    name: { type: String, required: true, trim: true, maxLength: 50 },
+    username: { type: String, required: true, unique: true, trim: true, lowercase: true, minlength: 4, maxLength: 20, match: [/^[a-z0-9_]+$/, 'Only lowercase letters, numbers, and underscores allowed'] },
+    password: { type: String, required: true, minlength: 8},
+    date_time: { type: String,  default: () => moment().tz("Asia/Kolkata").format("YYYY-MM-DD HH:mm:ss")}
+});
 
-        app.listen(3000, '0.0.0.0', () => console.log("Server running on port 3000"));
-    } catch (e) {
-        console.error(`DB Error: ${e.message}`);
-        process.exit(1);
-    }
-};
+const quizEnglishQuestionSchema = new mongoose.Schema({
+    category: { type: String, required: true },
+    difficulty: { type: String, required: true, enum: ['Easy', 'Medium', 'Hard'] },
+    question: { type: String, required: true },
+    options: { type: [String], required: true },
+    answer: { type: String, required: true },
+    date_time: { type: String,  default: () => moment().tz("Asia/Kolkata").format("YYYY-MM-DD HH:mm:ss")}
+});
 
-initializeDbToServer();
+const quizTamilQuestionSchema = new mongoose.Schema({
+    category: { type: String, required: true },
+    difficulty: { type: String, required: true, enum: ['Easy', 'Medium', 'Hard'] },
+    question: { type: String, required: true },
+    options: { type: [String], required: true },
+    answer: { type: String, required: true },
+    date_time: { type: String,  default: () => moment().tz("Asia/Kolkata").format("YYYY-MM-DD HH:mm:ss")}
+});
+
+const scoreBoardSchema = new mongoose.Schema({
+    user_id: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    category: { type: String, required: true },
+    level: { type: String, required: true, enum: ['Easy', 'Medium', 'Hard'] },
+    total_score: { type: Number, required: true, min: 0 },
+    question_set: { type: [String], required: true },
+    date_time: { type: String,  default: () => moment().tz("Asia/Kolkata").format("YYYY-MM-DD HH:mm:ss")}
+});
+
+// Create Models
+const UserModel = mongoose.model("User", userSchema);
+const QuizEnglishModel = mongoose.model("QuizEnglishQuestion", quizEnglishQuestionSchema);
+const QuizTamilModel = mongoose.model("QuizTamilQuestion", quizTamilQuestionSchema);
+const ScoreBoardModel = mongoose.model("ScoreBoard", scoreBoardSchema);
+
+
+
 
 const Authorization = (request, response, next) => {
     const authHeader = request.headers.authorization
@@ -60,16 +92,12 @@ const Authorization = (request, response, next) => {
 app.post('/quiz/register', async (request, response) => {
     const {userDetails} = request.body
     const {name, username, password} = userDetails
-    const hashedPassword = await bcrypt.hash(password, 5)
     try {
-        const checkUsernameQuery = `SELECT username FROM user WHERE username = ? ;`;
-        const checkUsername = await db.get(checkUsernameQuery,[username]);
-
-        if (!checkUsername){
-        const addNewUserQuery = `
-        INSERT INTO user (user_id, name, username, password)
-        VALUES (?, ?, ?, ? );`;
-        await db.run(addNewUserQuery,[uuidv4(), name, username, hashedPassword]);
+        const hashedPassword = await bcrypt.hash(password, 5);
+        const checkUser = await UserModel.findOne({username});
+        if (!checkUser){
+        const newUser = new UserModel({name, username, password: hashedPassword});
+        await newUser.save();
         response.status(201).json({ message: "Successfully Registered" });
         } else {
             response.status(400).json({error: "Username already exists"});
@@ -78,24 +106,27 @@ app.post('/quiz/register', async (request, response) => {
         console.error("Error in registration:", error);
         response.status(500).json({ error: "Internal server error" });
     }
-})
+});
 
 app.post('/quiz/login', async (request, response) => {
     const {userDetails} = request.body
     const { username, password } = userDetails;
     try {
-        const checkUsernameQuery = `SELECT * FROM user WHERE username = ?;`;
-        const checkUsername = await db.get(checkUsernameQuery, [username]);
-
-        if (checkUsername) {
-            const isPasswordValid = await bcrypt.compare(password, checkUsername.password);
+        if (!username || !password) {
+            return response.status(400).json({ error_msg: "Username or Password is missing" });
+        }
+        const checkUser = await UserModel.findOne({username});
+        if (checkUser) {
+            const isPasswordValid = await bcrypt.compare(password, checkUser.password);
             if (isPasswordValid) {
-                const payLoad = { username: checkUsername.username };
+                const payLoad = { username: checkUser.username, userId: checkUser._id };
                 const jwtToken = jwt.sign(payLoad, secret_key);
-                response.status(201).json({ message: "Login Successfully",
-                                            jwt_token: jwtToken,
-                                            userId: checkUsername.user_id,
-                                            name: checkUsername.name});
+                response.status(200).json({
+                    message: "Login Successfully",
+                    jwt_token: jwtToken,
+                    userId: checkUser._id,
+                    name: checkUser.name
+                });
             } else {
                 response.status(401).json({ error_msg: "Password is not valid" });
             }
@@ -107,63 +138,72 @@ app.post('/quiz/login', async (request, response) => {
     }
 });
 
-app.get('/quiz/data',Authorization, async (request, response) => {
-    const {category, difficulty, language} = request.query
-    let getQuizDataQuery;
+app.get('/quiz/data', Authorization, async (request, response) => {
+    const { category, difficulty, language } = request.query;
+    
     try {
-        if(language === 'tamil'){
-            getQuizDataQuery = `SELECT * FROM quizQuestionsTamil WHERE category = ? AND difficulty = ?;`;
+        const filter = {};
+        if (category) filter.category = category;
+        if (difficulty) filter.difficulty = difficulty;
+        const QuizModel = language === 'tamil' ? QuizTamilModel : QuizEnglishModel;
+        const quizData = await QuizModel.find(filter).lean();
+        if (!quizData.length) {
+            return response.status(404).json({ error: "No questions found" });
         }
-        else{
-            getQuizDataQuery = `SELECT * FROM quizQuestions WHERE category = ? AND difficulty = ?;`;
-        }
-        const getQuizData = await db.all(getQuizDataQuery, [category, difficulty]);
-        
-        const formattedQuizData = getQuizData.map(question => ({
+        const formattedQuizData = quizData.map(question => ({
             ...question,
-            options: JSON.parse(question.options)
+            options: Array.isArray(question.options) ? question.options : JSON.parse(question.options)
         }));
-
         response.json(formattedQuizData);
-        
     } catch (error) {
-        response.status(400).json({ error: 'Internal Server Error' });
+        console.error(`Error fetching quiz data: ${error.message}`);
+        response.status(500).json({ error: "Internal Server Error" });
     }
 });
 
-app.post('/quiz/add',Authorization, async (request, response) => {
+app.post('/quiz/add', Authorization, async (request, response) => {
     const { quizQuestions } = request.body;
-    // console.log(quizQuestions);
+    const { language } = request.query;
+    
     try {
-        for (let question of quizQuestions) {
-            const addNewQuestionQuery = `
-            INSERT INTO quizQuestionsTamil (id, category, difficulty, question, options, answer)
-            VALUES (${question.id}, "${question.category}", "${question.difficulty}", "${question.question}", '${JSON.stringify(question.options)}', "${question.answer}");`;
-            await db.run(addNewQuestionQuery);
+        const QuizModel = language === 'tamil' ? QuizTamilModel : QuizEnglishModel;
+        let duplicateQuestions = [];
+
+        await Promise.all(
+            quizQuestions.map(async (question) => {
+                const checkQuiz = await QuizModel.findOne({ question: question.question });
+                
+                if (checkQuiz) {
+                    duplicateQuestions.push(question.question); // Store duplicate questions
+                } else {
+                    await QuizModel.create({
+                        category: question.category,
+                        difficulty: question.difficulty,
+                        question: question.question,
+                        options: Array.isArray(question.options) ? question.options : JSON.stringify(question.options),
+                        answer: question.answer
+                    });
+                }
+            })
+        );
+
+        if (duplicateQuestions.length > 0) {
+            return response.status(409).json({ error: "Some quizzes already exist", duplicateQuestions });
         }
-        response.json('Question Added Successfully');
+        response.json({ message: "Questions Added Successfully" });
+
     } catch (error) {
         console.error(`Error adding question: ${error.message}`);
-        response.status(500).json({ error: 'Internal Server Error' });
+        response.status(500).json({ error: "Internal Server Error" });
     }
 });
 
-app.post('/quiz/scoreboard', Authorization, async (request, response) => {
-    const {userId, category, level, totalScore, dateTime, questionSet } = request.body;
-    try {
-        const addScoreBoardQuery = `
-        INSERT INTO scoreBoard (user_id, category, level, total_score, date_time, question_set)
-         VALUES (?, ?, ?, ?, ?, ?);
-        `;
 
-        await db.run(addScoreBoardQuery, [
-            userId,
-            category,
-            level,
-            totalScore,
-            dateTime,
-            JSON.stringify(questionSet)
-        ]);
+app.post('/quiz/scoreboard', Authorization, async (request, response) => {
+    const {userId, category, level, totalScore, questionSet } = request.body;
+    try {
+        const addScore = new ScoreBoardModel({user_id: userId, category, level, total_score: totalScore, question_set: JSON.stringify(questionSet)})
+        await addScore.save()
         response.send('Scoreboard Successfully Added');
     } catch (error) {
         response.status(500).json({ error: `Error adding scoreboard: ${error.message}` });
@@ -172,10 +212,12 @@ app.post('/quiz/scoreboard', Authorization, async (request, response) => {
 });
 
 app.get('/quiz/scoreboard', Authorization, async (req, res) => {
-    const {userId} = req.query;
+    const {userId, id} = req.query;
     try {
-        const getScoreBoardQuery = `SELECT * FROM scoreBoard WHERE user_id= ?`;
-        const getScoreBoard = await db.all(getScoreBoardQuery,[userId]);
+        let filter = {};
+        if (userId) filter.user_id = userId;
+        if (id) filter._id = id;
+        const getScoreBoard = await ScoreBoardModel.find(filter).lean()
 
         const formattedData = getScoreBoard.map(item => ({
             ...item,
@@ -191,15 +233,25 @@ app.get('/quiz/scoreboard', Authorization, async (req, res) => {
 
 
 app.delete('/quiz/scoreboard', Authorization, async (request, response) => {
-    const {id} = request.query
+    const { id } = request.query;
+
+    if (!id) {
+        return response.status(400).json({ error_msg: "ID is required" });
+    }
     try {
-        const deleteScoreBoardQuery = `DELETE FROM scoreBoard WHERE id= ?`
-        await db.run(deleteScoreBoardQuery,[id])
-        response.json('Successfully Delete')
+        const deletedScore = await ScoreBoardModel.findByIdAndDelete(id); 
+
+        if (!deletedScore) {
+            return response.status(404).json({ error_msg: "Scoreboard not found" });
+        }
+
+        response.json({ message: "Successfully Deleted" });
     } catch (error) {
-        response.json({error_msg: `Error deleting scoreboard: ${error.message}`})
-        console.error({error_msg: `Error deleting scoreboard: ${error.message}`});
+        response.status(500).json({ error_msg: `Error deleting scoreboard: ${error.message}` });
+        console.error(`Error deleting scoreboard: ${error.message}`);
     }
 });
 
-module.exports = app;
+
+
+app.listen(process.env.PORT || 4000, () => console.log(`Server Running at http://localhost:${process.env.PORT}`));

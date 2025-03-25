@@ -1,48 +1,66 @@
 
-POST http://localhost:3000/quiz/register
+POST http://localhost:4000/quiz/register
 Content-Type: application/json
 
-{
+{"userDetails": {
   "name": "Selva",
-  "username": "man3006",
-  "password": "manju@SELVA1201"
-}
+  "username": "selva_1201",
+  "password": "selva@GURU1201"
+}}
 
 ### 
 
 
-POST http://localhost:3000/quiz/login 
+POST http://localhost:4000/quiz/login 
 Content-Type: application/json
 
 {"userDetails" :{
-  "username": "sundar_1605",
-  "password": "sundar@KAMATCHI1605"
+  "username": "selva_1201",
+  "password": "selva@GURU1201"
 }}
 
 ###
-GET http://localhost:3000/quiz/data
+# GET http://localhost:3000/quiz/sqldata
+
 
 ###
-GET http://localhost:3000/quiz/data?category=History&difficulty=Easy&language=tamil
+GET http://localhost:4000/quiz/data
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InNlbHZhXzEyMDEiLCJ1c2VySWQiOiI2N2UxYmNiMDIzNmY0ODA0MGNkMDA4MjciLCJpYXQiOjE3NDI4ODA5NzN9.2f3DluRdGTetL0l93FrM-2lF8uwid-MNwhfWFFGNs0w
+
+###
+GET http://localhost:4000/quiz/data?category=History&difficulty=Easy&language=tamil
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InNlbHZhXzEyMDEiLCJ1c2VySWQiOiI2N2UxYmNiMDIzNmY0ODA0MGNkMDA4MjciLCJpYXQiOjE3NDI4ODA5NzN9.2f3DluRdGTetL0l93FrM-2lF8uwid-MNwhfWFFGNs0w
 
 ###
 
-POST http://localhost:3000/quiz/add
+POST http://localhost:4000/quiz/add?language=tamil
 Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InNlbHZhXzEyMDEiLCJ1c2VySWQiOiI2N2UxYmNiMDIzNmY0ODA0MGNkMDA4MjciLCJpYXQiOjE3NDI4ODA5NzN9.2f3DluRdGTetL0l93FrM-2lF8uwid-MNwhfWFFGNs0w
 
 {
   "quizQuestions":
-  []
+  [{
+    "category": "History",
+    "difficulty": "Medium",
+    "question": "பெர்லின் சுவர் எந்த ஆண்டில் வீழ்ந்தது?",
+    "options": [
+      "1987",
+      "1988",
+      "1989",
+      "1990"
+    ],
+    "answer": "1989"
+  }]
 }
 
 ###
 
-POST http://localhost:3001/quiz/scoreboard
+POST http://localhost:4000/quiz/scoreboard
 Content-Type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InNlbHZhMTIwMSIsImlhdCI6MTc0MDE3NDk3OX0.2NZEcGxi9FRT5ftDuHQKzTszHlmY3XA3_2cKGF4rBsc
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InNlbHZhXzEyMDEiLCJ1c2VySWQiOiI2N2UxYmNiMDIzNmY0ODA0MGNkMDA4MjciLCJpYXQiOjE3NDI4ODA5NzN9.2f3DluRdGTetL0l93FrM-2lF8uwid-MNwhfWFFGNs0w
 
 {
-  "userId": "9fa134d1-0418-494f-80f1-f7d93e07afdd",
+  "userId": "67e1bcb0236f48040cd00827",
   "category": "sample",
   "level": "Easy",
   "totalScore": 3,
@@ -52,11 +70,11 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InNlb
 
 ###
 
-DELETE http://localhost:3001/quiz/scoreboard?id=6
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InNlbHZhMTIwMSIsImlhdCI6MTc0MDE3NDk3OX0.2NZEcGxi9FRT5ftDuHQKzTszHlmY3XA3_2cKGF4rBsc
+DELETE http://localhost:4000/quiz/scoreboard?id=67e262d6d341eaa59f653919
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InNlbHZhXzEyMDEiLCJ1c2VySWQiOiI2N2UxYmNiMDIzNmY0ODA0MGNkMDA4MjciLCJpYXQiOjE3NDI4ODA5NzN9.2f3DluRdGTetL0l93FrM-2lF8uwid-MNwhfWFFGNs0w
 
 
 ###
 
-GET http://localhost:3000/quiz/scoreboard?userId=0be6a2ee-b2ea-404b-998e-e01f75271c2c
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InNlbHZhMTIwMSIsImlhdCI6MTc0MDE3NDk3OX0.2NZEcGxi9FRT5ftDuHQKzTszHlmY3XA3_2cKGF4rBsc
+GET http://localhost:4000/quiz/scoreboard?userId=67e1bcb0236f48040cd00827
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VybmFtZSI6InNlbHZhXzEyMDEiLCJ1c2VySWQiOiI2N2UxYmNiMDIzNmY0ODA0MGNkMDA4MjciLCJpYXQiOjE3NDI4ODA5NzN9.2f3DluRdGTetL0l93FrM-2lF8uwid-MNwhfWFFGNs0w
